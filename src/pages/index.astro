@@ -3,15 +3,16 @@ import Layout from '../layouts/Layout.astro';
 import PageHero from '../components/PageHero.astro';
 import GameListing from '../components/GameListing.astro';
 import { getDatabase } from '../lib/db';
-import { getAllCategories, getAllPublishers, getPaginatedGames } from '../lib/games';
+import { getAllCategories, getAllPublishers, getCatalogSummary, getPaginatedGames } from '../lib/games';
 
 export const prerender = true;
 
 const db = getDatabase();
-const [{ games, page, totalPages, totalGames }, categories, publishers] = await Promise.all([
+const [{ games, page, totalPages, totalGames }, categories, publishers, summary] = await Promise.all([
   getPaginatedGames(db, { page: 1, pageSize: 6 }),
   getAllCategories(db),
   getAllPublishers(db),
+  getCatalogSummary(db),
 ]);
 ---
 
@@ -21,6 +22,19 @@ const [{ games, page, totalPages, totalGames }, categories, publishers] = await 
       title="Welcome to Tailspin Toys"
       subtitle="Find your next game! And maybe even back one! Explore our collection!"
     />
+    <section aria-labelledby="catalog-summary-heading" class="mb-8 grid gap-4 sm:grid-cols-2" data-testid="catalog-summary">
+      <h2 id="catalog-summary-heading" class="sr-only">Catalog summary</h2>
+      <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
+        <p class="text-sm text-slate-400">Games in the catalog</p>
+        <p class="mt-1 text-3xl font-semibold text-slate-100" data-testid="catalog-total">{summary.totalGames}</p>
+      </div>
+      <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
+        <p class="text-sm text-slate-400">Average rating</p>
+        <p class="mt-1 text-3xl font-semibold text-yellow-400" data-testid="catalog-average-rating">
+          {summary.averageRating === null ? 'No ratings yet' : `${summary.averageRating.toFixed(1)} / 5`}
+        </p>
+      </div>
+    </section>
 
     <div>
       <h2 class="text-2xl font-medium mb-6 text-slate-100">Featured Games</h2>

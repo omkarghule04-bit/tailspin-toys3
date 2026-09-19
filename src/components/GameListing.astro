@@ -47,6 +47,28 @@ const pageHref = (pageNumber: number): string => pageNumber === 1 ? '/' : `/game
                 </button>
             </div>
             <div class="mt-5 grid gap-6 md:grid-cols-2">
+                <div>
+                    <label for="game-search" class="mb-3 block text-sm font-medium text-slate-200">Search by title</label>
+                    <input
+                        id="game-search"
+                        type="search"
+                        placeholder="Search games..."
+                        data-testid="game-search"
+                        class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
+                <div>
+                    <label for="game-sort" class="mb-3 block text-sm font-medium text-slate-200">Sort games</label>
+                    <select
+                        id="game-sort"
+                        data-testid="game-sort"
+                        class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="title-asc">Title (A–Z)</option>
+                        <option value="title-desc">Title (Z–A)</option>
+                        <option value="rating-desc">Rating (highest first)</option>
+                    </select>
+                </div>
                 <fieldset>
                     <legend class="mb-3 text-sm font-medium text-slate-200">Categories</legend>
                     <div class="grid gap-2 sm:grid-cols-2">
@@ -119,6 +141,8 @@ const pageHref = (pageNumber: number): string => pageNumber === 1 ? '/' : `/game
     const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="game-card"]'));
     const categoryInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[data-testid^="category-filter-"]'));
     const publisherSelect = document.querySelector<HTMLSelectElement>('[data-testid="publisher-filter"]');
+    const searchInput = document.querySelector<HTMLInputElement>('[data-testid="game-search"]');
+    const sortSelect = document.querySelector<HTMLSelectElement>('[data-testid="game-sort"]');
     const clearButton = document.querySelector<HTMLButtonElement>('[data-testid="clear-filters"]');
     const grid = document.querySelector<HTMLElement>('[data-testid="games-grid"]');
     const emptyState = document.querySelector<HTMLElement>('[data-testid="filtered-empty-state"]');
@@ -127,16 +151,30 @@ const pageHref = (pageNumber: number): string => pageNumber === 1 ? '/' : `/game
     const applyFilters = (): void => {
         const selectedCategories = new Set(categoryInputs.filter((input) => input.checked).map((input) => input.value));
         const selectedPublisher = publisherSelect?.value ?? '';
+        const searchTerm = searchInput?.value.trim().toLocaleLowerCase() ?? '';
+        const sort = sortSelect?.value ?? 'title-asc';
         let visibleCount = 0;
 
         cards.forEach((card) => {
             const matchesCategory = selectedCategories.size === 0 || selectedCategories.has(card.dataset.categoryId ?? '');
             const matchesPublisher = selectedPublisher === '' || selectedPublisher === card.dataset.publisherId;
-            const isVisible = matchesCategory && matchesPublisher;
+            const matchesSearch = (card.dataset.gameTitle ?? '').toLocaleLowerCase().includes(searchTerm);
+            const isVisible = matchesCategory && matchesPublisher && matchesSearch;
             card.classList.toggle('hidden', !isVisible);
             if (isVisible) visibleCount += 1;
         });
 
+        const visibleCards = cards.filter((card) => !card.classList.contains('hidden'));
+        visibleCards.sort((left, right) => {
+            if (sort === 'rating-desc') {
+                const leftRating = left.dataset.rating === '' ? -1 : Number(left.dataset.rating);
+                const rightRating = right.dataset.rating === '' ? -1 : Number(right.dataset.rating);
+                return rightRating - leftRating || (left.dataset.gameTitle ?? '').localeCompare(right.dataset.gameTitle ?? '');
+            }
+            const comparison = (left.dataset.gameTitle ?? '').localeCompare(right.dataset.gameTitle ?? '');
+            return sort === 'title-desc' ? -comparison : comparison;
+        });
+        visibleCards.forEach((card) => grid?.append(card));
         grid?.classList.toggle('hidden', visibleCount === 0);
         emptyState?.classList.toggle('hidden', visibleCount !== 0);
         if (resultCount) {
@@ -146,11 +184,15 @@ const pageHref = (pageNumber: number): string => pageNumber === 1 ? '/' : `/game
 
     categoryInputs.forEach((input) => input.addEventListener('change', applyFilters));
     publisherSelect?.addEventListener('change', applyFilters);
+    searchInput?.addEventListener('input', applyFilters);
+    sortSelect?.addEventListener('change', applyFilters);
     clearButton?.addEventListener('click', () => {
         categoryInputs.forEach((input) => {
             input.checked = false;
         });
         if (publisherSelect) publisherSelect.value = '';
+        if (searchInput) searchInput.value = '';
+        if (sortSelect) sortSelect.value = 'title-asc';
         applyFilters();
     });
 </script>

@@ -28,6 +28,34 @@ test.describe('Game Listing and Navigation', () => {
     });
   });
 
+  test('should search and sort the game list', async ({ page }) => {
+    await page.goto('/');
+    const search = page.getByTestId('game-search');
+    const firstTitle = await page.getByTestId('game-title').first().textContent();
+    await search.fill(firstTitle?.slice(0, 3) ?? '');
+    await expect(page.getByTestId('filter-result-count')).toContainText('Showing');
+    await expect(page.getByTestId('filtered-empty-state')).toBeHidden();
+
+    await page.getByTestId('game-sort').selectOption('rating-desc');
+    const ratings = await page.locator('[data-testid="game-card"]:visible').evaluateAll((cards) =>
+      cards.map((card) => Number(card.getAttribute('data-rating') || '-1')),
+    );
+    expect(ratings).toEqual([...ratings].sort((a, b) => b - a));
+  });
+
+  test('should open a publisher page and show descriptions on game details', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('game-card').first().click();
+    const publisherLink = page.locator('[data-testid="game-details-publisher"]').locator('..');
+    await expect(publisherLink).toHaveAttribute('href', /\/publisher\/\d+\/$/);
+    await publisherLink.click();
+    await expect(page.getByTestId('publisher-title')).toBeVisible();
+    await expect(page.getByTestId('game-card').first()).toBeVisible();
+    await page.getByTestId('game-card').first().click();
+    await expect(page.getByTestId('game-details')).toBeVisible();
+    await expect(page.getByTestId('game-context')).toBeVisible();
+  });
+
   test('should display games with titles on index page', async ({ page }) => {
     await test.step('Navigate to homepage', async () => {
       await page.goto('/');

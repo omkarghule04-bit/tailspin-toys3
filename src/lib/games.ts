@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray } from 'drizzle-orm';
+import { and, asc, avg, count, eq, inArray } from 'drizzle-orm';
 import type { Database } from './db';
 import { games, categories, publishers } from '../../db/schema';
 import type { Game } from '../types/game';
@@ -10,8 +10,10 @@ const gameSelection = {
     starRating: games.starRating,
     categoryId: categories.id,
     categoryName: categories.name,
+    categoryDescription: categories.description,
     publisherId: publishers.id,
     publisherName: publishers.name,
+    publisherDescription: publishers.description,
 };
 
 type GameSelectionRow = {
@@ -21,8 +23,10 @@ type GameSelectionRow = {
     starRating: number | null;
     categoryId: number | null;
     categoryName: string | null;
+    categoryDescription: string | null;
     publisherId: number | null;
     publisherName: string | null;
+    publisherDescription: string | null;
 };
 
 export interface GameFilters {
@@ -30,9 +34,71 @@ export interface GameFilters {
     publisherId?: number;
 }
 
+export interface CatalogSummary {
+    totalGames: number;
+    averageRating: number | null;
+}
+
 export interface Pagination {
     page: number;
     pageSize: number;
+}
+
+/**
+ * Returns all games belonging to one publisher, ordered by title.
+ *
+ * @param db Injectable Drizzle database instance.
+ * @param publisherId Publisher ID to match.
+ * @returns Games published by the requested publisher.
+ */
+export async function getGamesByPublisher(db: Database, publisherId: number): Promise<Game[]> {
+    return getAllGames(db, { publisherId });
+}
+
+/**
+ * Returns a publisher's name and description, or null when it does not exist.
+ *
+ * @param db Injectable Drizzle database instance.
+ * @param publisherId Publisher ID to look up.
+ * @returns Publisher details or null.
+ */
+export async function getPublisherById(
+    db: Database,
+    publisherId: number,
+): Promise<{ id: number; name: string; description: string | null } | null> {
+    const publisher = await db
+        .select({ id: publishers.id, name: publishers.name, description: publishers.description })
+        .from(publishers)
+        .where(eq(publishers.id, publisherId))
+        .get();
+    return publisher ?? null;
+}
+
+/**
+ * Returns publisher IDs in deterministic name order for static route generation.
+ *
+ * @param db Injectable Drizzle database instance.
+ * @returns Publisher IDs ordered by publisher name.
+ */
+export async function getAllPublisherIds(db: Database): Promise<number[]> {
+    const rows = await db.select({ id: publishers.id }).from(publishers).orderBy(asc(publishers.name));
+    return rows.map((row) => row.id);
+}
+
+/**
+ * Computes catalog size and the average of all non-null star ratings.
+ *
+ * @param db Injectable Drizzle database instance.
+ * @returns Catalog totals and a null average when no games are rated.
+ */
+export async function getCatalogSummary(db: Database): Promise<CatalogSummary> {
+    const [summary] = await db
+        .select({ totalGames: count(games.id), averageRating: avg(games.starRating) })
+        .from(games);
+    return {
+        totalGames: summary.totalGames,
+        averageRating: summary.averageRating === null ? null : Number(summary.averageRating),
+    };
 }
 
 export interface PaginatedGames {
@@ -51,11 +117,11 @@ function mapGame(row: GameSelectionRow): Game {
         starRating: row.starRating,
         category:
             row.categoryId !== null && row.categoryName !== null
-                ? { id: row.categoryId, name: row.categoryName }
+                ? { id: row.categoryId, name: row.categoryName, description: row.categoryDescription }
                 : null,
         publisher:
             row.publisherId !== null && row.publisherName !== null
-                ? { id: row.publisherId, name: row.publisherName }
+                ? { id: row.publisherId, name: row.publisherName, description: row.publisherDescription }
                 : null,
     };
 }

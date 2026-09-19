@@ -7,6 +7,8 @@ import {
     getAllCategories,
     getAllGameIds,
     getAllPublishers,
+    getCatalogSummary,
+    getGamesByPublisher,
     getGameById,
     getPaginatedGames,
 } from './games';
@@ -44,8 +46,8 @@ describe('games data-access helpers', () => {
         await seedGames(db, 3);
         const all = await getAllGames(db);
         expect(all.map((g) => g.title)).toEqual(['Game 01', 'Game 02', 'Game 03']);
-        expect(all[0].category).toEqual({ id: expect.any(Number), name: 'Strategy' });
-        expect(all[0].publisher).toEqual({ id: expect.any(Number), name: 'Pub One' });
+        expect(all[0].category).toEqual({ id: expect.any(Number), name: 'Strategy', description: 'cat' });
+        expect(all[0].publisher).toEqual({ id: expect.any(Number), name: 'Pub One', description: 'pub' });
     });
 
     it('returns all game ids ordered by title', async () => {
@@ -118,5 +120,20 @@ describe('games data-access helpers', () => {
     it('returns null for a non-existent game', async () => {
         await seedGames(db, 2);
         expect(await getGameById(db, 99999)).toBeNull();
+    });
+
+    it('returns publisher games and catalog summary', async () => {
+        await seedGames(db, 3);
+        const publisher = (await getAllPublishers(db))[0];
+        expect((await getGamesByPublisher(db, publisher.id)).map((game) => game.title)).toEqual([
+            'Game 01',
+            'Game 02',
+            'Game 03',
+        ]);
+        expect(await getCatalogSummary(db)).toEqual({ totalGames: 3, averageRating: 4.2 });
+    });
+
+    it('returns a null average for an unrated empty catalog', async () => {
+        expect(await getCatalogSummary(db)).toEqual({ totalGames: 0, averageRating: null });
     });
 });
