@@ -28,15 +28,6 @@ function getRepository() {
     return match[1];
 }
 
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
-}
-
 function scoreIssue(issue) {
     const labelScore = issue.labels.reduce((total, label) => {
         return total + (priorityLabels.get(label.name.toLowerCase()) ?? 0);
@@ -81,20 +72,6 @@ async function loadIssues() {
     return issues
         .map((issue) => ({ ...issue, triageScore: scoreIssue(issue) }))
         .sort((left, right) => right.triageScore - left.triageScore || Date.parse(right.updated_at) - Date.parse(left.updated_at));
-}
-
-function issueCard(issue, reason = '') {
-    const labels = issue.labels
-        .map((label) => `<span class="label">${escapeHtml(label.name)}</span>`)
-        .join('');
-    return `<article class="card">
-        <div class="card-header"><span class="number">#${issue.number}</span><span class="date">${new Date(issue.updated_at).toLocaleDateString()}</span></div>
-        <h3>${escapeHtml(issue.title)}</h3>
-        <p>${escapeHtml(issue.body || 'No description provided.')}</p>
-        <div class="labels">${labels || '<span class="label muted">unlabeled</span>'}</div>
-        ${reason ? `<p class="reason"><strong>Why now:</strong> ${escapeHtml(reason)}</p>` : ''}
-        <button data-issue="${issue.number}">Add to current context</button>
-    </article>`;
 }
 
 function renderHtml() {
