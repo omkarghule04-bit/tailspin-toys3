@@ -4,7 +4,9 @@ import { categories, publishers, games } from '../../db/schema';
 import type { Database } from './db';
 import {
     getAllGames,
+    getAllCategories,
     getAllGameIds,
+    getAllPublishers,
     getGameById,
 } from './games';
 
@@ -50,6 +52,39 @@ describe('games data-access helpers', () => {
         const ids = await getAllGameIds(db);
         const all = await getAllGames(db);
         expect(ids).toEqual(all.map((g) => g.id));
+    });
+
+    it('filters games by category and publisher together', async () => {
+        await seedGames(db, 2);
+        const categoriesList = await getAllCategories(db);
+        const publishersList = await getAllPublishers(db);
+
+        const filtered = await getAllGames(db, {
+            categoryIds: [categoriesList[0].id],
+            publisherId: publishersList[0].id,
+        });
+
+        expect(filtered.map((game) => game.title)).toEqual(['Game 01', 'Game 02']);
+    });
+
+    it('returns no games when a category filter does not match', async () => {
+        await seedGames(db, 1);
+        const filtered = await getAllGames(db, { categoryIds: [99999] });
+        expect(filtered).toEqual([]);
+    });
+
+    it('returns category and publisher options ordered by name', async () => {
+        await db.insert(categories).values([
+            { name: 'Zigzag', description: 'cat' },
+            { name: 'Arcade', description: 'cat' },
+        ]);
+        await db.insert(publishers).values([
+            { name: 'Zeta', description: 'pub' },
+            { name: 'Alpha', description: 'pub' },
+        ]);
+
+        expect((await getAllCategories(db)).map((item) => item.name)).toEqual(['Arcade', 'Zigzag']);
+        expect((await getAllPublishers(db)).map((item) => item.name)).toEqual(['Alpha', 'Zeta']);
     });
 
     it('fetches a single game by id', async () => {

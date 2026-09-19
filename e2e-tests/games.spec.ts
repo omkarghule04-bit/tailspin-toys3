@@ -1,6 +1,33 @@
 import { test, expect, type Response } from '@playwright/test';
 
 test.describe('Game Listing and Navigation', () => {
+  test('should filter games by category and publisher', async ({ page }) => {
+    await page.goto('/');
+
+    const cards = page.getByTestId('game-card');
+    const categoryFilter = page.getByTestId(/^category-filter-/).first();
+    const publisherFilter = page.getByTestId('publisher-filter');
+
+    await test.step('Filter by a category', async () => {
+      await categoryFilter.check();
+      await expect(page.getByTestId('filter-result-count')).toContainText('Showing');
+      await expect(page.locator('[data-testid="game-card"]:visible').first()).toBeVisible();
+    });
+
+    await test.step('Combine the category with a publisher', async () => {
+      await publisherFilter.selectOption({ index: 1 });
+      await expect(publisherFilter).not.toHaveValue('');
+      await expect(page.getByTestId('filter-result-count')).toContainText('Showing');
+    });
+
+    await test.step('Clear filters', async () => {
+      await page.getByTestId('clear-filters').click();
+      await expect(categoryFilter).not.toBeChecked();
+      await expect(publisherFilter).toHaveValue('');
+      await expect(cards.first()).toBeVisible();
+    });
+  });
+
   test('should display games with titles on index page', async ({ page }) => {
     await test.step('Navigate to homepage', async () => {
       await page.goto('/');
