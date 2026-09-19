@@ -108,6 +108,8 @@ The shared **Database Explorer** canvas (`.github/extensions/database-explorer/`
 
 The **Issue Triage** canvas (`.github/extensions/kanban-triage/`) fetches open issues from the repository, ranks the three most urgent issues using labels, activity, and recency, and lists the remainder below. Each issue includes an **Add to current context** button that sends its details to the active Copilot session.
 
+The home page lists games in six-item static pages. Use the **Previous** and **Next** controls to browse the catalog; pagination metadata is provided by the injectable `getPaginatedGames` data-access helper.
+
 ### PR Readiness Agent
 
 The **PR Readiness** agent (`.github/agents/pr-readiness.md`) is a pre-PR quality gate. Invoke it before opening a pull request to:

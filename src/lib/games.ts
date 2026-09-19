@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import type { Database } from './db';
 import { games, categories, publishers } from '../../db/schema';
 import type { Game } from '../types/game';
@@ -28,6 +28,19 @@ type GameSelectionRow = {
 export interface GameFilters {
     categoryIds?: number[];
     publisherId?: number;
+}
+
+export interface Pagination {
+    page: number;
+    pageSize: number;
+}
+
+export interface PaginatedGames {
+    games: Game[];
+    page: number;
+    pageSize: number;
+    totalGames: number;
+    totalPages: number;
 }
 
 function mapGame(row: GameSelectionRow): Game {
@@ -75,6 +88,50 @@ export async function getAllGames(db: Database, filters: GameFilters = {}): Prom
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(asc(games.title));
     return rows.map(mapGame);
+}
+
+/**
+ * Returns one stable, title-ordered page of games and its navigation metadata.
+ *
+ * @param db Injectable Drizzle database instance.
+ * @param pagination One-based page number and positive page size.
+ * @param filters Optional category IDs and publisher ID to constrain the results.
+ * @returns The requested page, clamped to the available page range, and totals.
+ */
+export async function getPaginatedGames(
+    db: Database,
+    pagination: Pagination,
+    filters: GameFilters = {},
+): Promise<PaginatedGames> {
+    const pageSize = Math.max(1, Math.floor(pagination.pageSize));
+    const requestedPage = Math.max(1, Math.floor(pagination.page));
+    const conditions = [];
+    if (filters.categoryIds && filters.categoryIds.length > 0) {
+        conditions.push(inArray(games.categoryId, filters.categoryIds));
+    }
+    if (filters.publisherId !== undefined) {
+        conditions.push(eq(games.publisherId, filters.publisherId));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [{ totalGames }] = await db
+        .select({ totalGames: count(games.id) })
+        .from(games)
+        .where(where);
+    const totalPages = Math.max(1, Math.ceil(totalGames / pageSize));
+    const page = Math.min(requestedPage, totalPages);
+    const rows = await baseGamesQuery(db)
+        .where(where)
+        .orderBy(asc(games.title))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize);
+
+    return {
+        games: rows.map(mapGame),
+        page,
+        pageSize,
+        totalGames,
+        totalPages,
+    };
 }
 
 /**
