@@ -35,9 +35,15 @@ export default [
 
   // TypeScript-specific overrides
   {
-    files: ["**/*.ts"],
+    files: ["db/**/*.ts", "src/**/*.ts"],
     languageOptions: {
       parser: tseslint.parser,
+    },
+    rules: {
+      "@typescript-eslint/array-type": ["error", { default: "array" }],
+      "comma-dangle": ["error", "always-multiline"],
+      "quotes": ["error", "single"],
+      "semi": ["error", "always"],
     },
   },
 ];

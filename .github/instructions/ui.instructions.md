@@ -49,7 +49,13 @@ Refer to technology-specific instruction files:
 - Create reusable components for common UI patterns
 - Keep components focused on a single responsibility
 - Use props for configuration, not duplication
-- Document component APIs with TypeScript types
+- Document component APIs with a `Props` interface and describe each prop in TSDoc/JSDoc
+
+### Comments and formatting
+
+- Comments explain intent, constraints, or non-obvious decisions. Never use comments to repeat what the markup or expression already says.
+- Keep comments and prop documentation synchronized with the implementation; stale documentation is a defect.
+- Follow the TypeScript formatting rules documented in `copilot-instructions.md`: four-space indentation, semicolons, single quotes, trailing commas in multiline constructs, interface object contracts, and `T[]` arrays. ESLint enforces the conventions that are safe for both `.ts` and Astro parsing contexts.
 
 ## Development Workflow
 
