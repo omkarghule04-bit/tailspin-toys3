@@ -1,16 +1,18 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import GameCard from '../components/GameCard.astro';
 import PageHero from '../components/PageHero.astro';
-import EmptyState from '../components/EmptyState.astro';
+import GameListing from '../components/GameListing.astro';
 import { getDatabase } from '../lib/db';
-import { getAllCategories, getAllGames, getAllPublishers } from '../lib/games';
+import { getAllCategories, getAllPublishers, getPaginatedGames } from '../lib/games';
 
 export const prerender = true;
 
-const games = await getAllGames(getDatabase());
-const categories = await getAllCategories(getDatabase());
-const publishers = await getAllPublishers(getDatabase());
+const db = getDatabase();
+const [{ games, page, totalPages, totalGames }, categories, publishers] = await Promise.all([
+  getPaginatedGames(db, { page: 1, pageSize: 6 }),
+  getAllCategories(db),
+  getAllPublishers(db),
+]);
 ---
 
 <Layout title="Tailspin Toys - Crowdfunding your new favorite game!">
@@ -22,104 +24,14 @@ const publishers = await getAllPublishers(getDatabase());
 
     <div>
       <h2 class="text-2xl font-medium mb-6 text-slate-100">Featured Games</h2>
-
-      {games.length === 0 ? (
-        <EmptyState text="No games available at the moment." />
-      ) : (
-        <>
-          <section aria-labelledby="filter-heading" class="mb-8 rounded-xl border border-slate-700 bg-slate-800/60 p-6">
-            <div class="flex flex-wrap items-center justify-between gap-4">
-              <h3 id="filter-heading" class="text-xl font-medium text-slate-100">Filter games</h3>
-              <button
-                type="button"
-                class="rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                data-testid="clear-filters"
-              >
-                Clear filters
-              </button>
-            </div>
-            <div class="mt-5 grid gap-6 md:grid-cols-2">
-              <fieldset>
-                <legend class="mb-3 text-sm font-medium text-slate-200">Categories</legend>
-                <div class="grid gap-2 sm:grid-cols-2">
-                  {categories.map((category) => (
-                    <label class="flex items-center gap-2 text-sm text-slate-300">
-                      <input
-                        type="checkbox"
-                        value={category.id}
-                        data-testid={`category-filter-${category.id}`}
-                        class="h-4 w-4 rounded border-slate-600 bg-slate-900 text-blue-500 focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span>{category.name}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              <div>
-                <label for="publisher-filter" class="mb-3 block text-sm font-medium text-slate-200">Publisher</label>
-                <select
-                  id="publisher-filter"
-                  data-testid="publisher-filter"
-                  class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">All publishers</option>
-                  {publishers.map((publisher) => <option value={publisher.id}>{publisher.name}</option>)}
-                </select>
-              </div>
-            </div>
-            <p class="mt-5 text-sm text-slate-400" data-testid="filter-result-count" aria-live="polite">
-              Showing {games.length} {games.length === 1 ? 'game' : 'games'}
-            </p>
-          </section>
-
-          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" data-testid="games-grid">
-            {games.map((game) => <GameCard game={game} />)}
-          </div>
-          <div class="hidden" data-testid="filtered-empty-state">
-            <EmptyState text="No games match the selected filters." />
-          </div>
-        </>
-      )}
+      <GameListing
+        games={games}
+        categories={categories}
+        publishers={publishers}
+        page={page}
+        totalPages={totalPages}
+        totalGames={totalGames}
+      />
     </div>
   </div>
 </Layout>
-
-<script>
-  const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="game-card"]'));
-  const categoryInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[data-testid^="category-filter-"]'));
-  const publisherSelect = document.querySelector<HTMLSelectElement>('[data-testid="publisher-filter"]');
-  const clearButton = document.querySelector<HTMLButtonElement>('[data-testid="clear-filters"]');
-  const grid = document.querySelector<HTMLElement>('[data-testid="games-grid"]');
-  const emptyState = document.querySelector<HTMLElement>('[data-testid="filtered-empty-state"]');
-  const resultCount = document.querySelector<HTMLElement>('[data-testid="filter-result-count"]');
-
-  const applyFilters = (): void => {
-    const selectedCategories = new Set(categoryInputs.filter((input) => input.checked).map((input) => input.value));
-    const selectedPublisher = publisherSelect?.value ?? '';
-    let visibleCount = 0;
-
-    cards.forEach((card) => {
-      const matchesCategory = selectedCategories.size === 0 || selectedCategories.has(card.dataset.categoryId ?? '');
-      const matchesPublisher = selectedPublisher === '' || selectedPublisher === card.dataset.publisherId;
-      const isVisible = matchesCategory && matchesPublisher;
-      card.classList.toggle('hidden', !isVisible);
-      if (isVisible) visibleCount += 1;
-    });
-
-    grid?.classList.toggle('hidden', visibleCount === 0);
-    emptyState?.classList.toggle('hidden', visibleCount !== 0);
-    if (resultCount) {
-      resultCount.textContent = `Showing ${visibleCount} ${visibleCount === 1 ? 'game' : 'games'}`;
-    }
-  };
-
-  categoryInputs.forEach((input) => input.addEventListener('change', applyFilters));
-  publisherSelect?.addEventListener('change', applyFilters);
-  clearButton?.addEventListener('click', () => {
-    categoryInputs.forEach((input) => {
-      input.checked = false;
-    });
-    if (publisherSelect) publisherSelect.value = '';
-    applyFilters();
-  });
-</script>
